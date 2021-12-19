@@ -1,0 +1,135 @@
+*:9898:pgpool:xxxx
+----------------------------
+# .bash_profile
+
+# Get the aliases and functions
+if [ -f ~/.bashrc ]; then
+        . ~/.bashrc
+fi
+
+# User specific environment and startup programs
+
+PATH=$PATH:$HOME/bin
+
+PG_HOME=/usr/pgsql-11/bin/
+
+PATH=$PATH:$HOME/bin:$PG_HOME
+
+export PATH
+
+export JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-1.8.0.222.b10-0.el7_6.x86_64/jre/bin/java
+You have new mail in /var/spool/mail/root
+---------------------------------------------------
+IP port
+10.10.0.136 5432
+-------------------------------
+#!/bin/bash
+# email report when
+EMAIL="xxx@gmail.com,sxxx@gmail.com,mxxx@gmail.com"
+SENDER="inxxx@gmail.com"
+SUBJECT="ERP Database Server Alert"
+DBFILE=/root/dbscript/db.txt #list the sites you want to monitor in this file
+while read db; do
+nc -z -w10 $db
+result1=$?
+
+#Do whatever you want
+
+if [  "$result1" != 0 ]; then
+        #echo "Failed to connect"
+MESSAGE="Dear All, \n\nFollowing database service is not available right now.\nIP & Port:${db} \nContact Person: \n1. Nazmul Hoque Bhuiyan \n2.Nazmul Hoque Bhuiyan (Cell# 01615911873)\n\nRegards,\nInfrastructure Administration"
+                        echo -e "$MESSAGE" | mail -s "$SUBJECT" -S smtp=smtp://118.179.206.70:5471 -r $SENDER $EMAIL
+
+else
+echo "Connected"
+
+fi
+
+done < $DBFILE
+------------------------------------------------------
+#!/bin/bash
+# Send Email using this function
+send_email()
+{
+
+NODE_NO1=$1;
+NODE_NO2=$2;
+NODE_NO3=$3;
+
+SUBJECT="ERP-LIVE (10.10.10.1): PGPOOL NODE STATUS"
+EMAILS="ixxx@gmail.com,sxxx@gmail.com"
+SENDER="inxxx@gmail.com"
+
+MESSAGE="Dear All, \nPgPool is showing status of database nodes in the following.\n\nDB NODE-1 : ${NODE_NO1} \nDB NODE-2 : ${NODE_NO2} \nDB NODE-3 : ${NODE_NO3} \nContact Person: \n1. Md. Obaidul Haque Sarker (Cell# 01787688626) \n2.Nazmul Hoque Bhuiyan (Cell# 01787680611)\n\nRegards,\nbiTS Infrastructure Support\n\n\n[Note: DOWN nodes will be UP automatically within 5 minutes, otherwise manual intervention is needed.]"
+for EMAIL in $(echo $EMAILS | tr "," " "); do
+     echo -e "$MESSAGE" | mail -s "$SUBJECT" -S smtp=smtp://10.10.10.2:5341 -r $SENDER  $EMAIL
+     echo "Alert sent to $EMAIL"
+done
+}
+-----------------------------------------
+#!/bin/bash
+#pgpool status
+#0 - This state is only used during the initialization. PCP will never display it.
+#1 - Node is up. No connections yet.
+#2 - Node is up. Connections are pooled.
+#3 - Node is down.
+
+source $HOME/.bash_profile
+export PCPPASSFILE=~/.pcppass
+
+source /script/send_email.sh
+
+NODE1="UP"
+NODE2="UP"
+NODE3="UP"
+
+STATUS_0=$(/usr/bin/pcp_node_info -h 127.0.0.1 -U pgpool -p 9898 -n 0 -w | cut -d " " -f 3)
+echo $(date +%Y.%m.%d-%H:%M:%S.%3N)" [INFO] NODE 0 status "$STATUS_0;
+LOGFILE=/script/pg-pool-monitor.log
+
+if [ $STATUS_0 == 3 ]
+then
+    NODE1="DOWN";
+    echo "$(date +%Y.%m.%d-%H:%M:%S.%3N) : NODE (0) is DOWN" >> $LOGFILE;
+    echo $(date +%Y.%m.%d-%H:%M:%S.%3N)" [WARN] NODE 0 is down - attaching node" >> $LOGFILE;
+    TMP=$(/usr/bin/pcp_attach_node -h 127.0.0.1 -U pgpool -p 9898 -n 0 -w -v)
+    echo $(date +%Y.%m.%d-%H:%M:%S.%3N)" [INFO] "$TMP >> $LOGFILE;
+else
+    echo "$(date +%Y.%m.%d-%H:%M:%S.%3N) : NODE (0) is UP" >> $LOGFILE;
+fi
+
+STATUS_1=$(/usr/bin/pcp_node_info -h 127.0.0.1 -U pgpool -p 9898 -n 1 -w | cut -d " " -f 3)
+echo $(date +%Y.%m.%d-%H:%M:%S.%3N)" [INFO] NODE 1 status "$STATUS_1;
+
+if [ $STATUS_1 == 3 ]
+then
+    NODE2="DOWN";
+    echo "$(date +%Y.%m.%d-%H:%M:%S.%3N) : NODE (1) is DOWN" >> $LOGFILE;
+    echo $(date +%Y.%m.%d-%H:%M:%S.%3N)" [WARN] NODE 1 is down - attaching node" >> $LOGFILE;
+    TMP=$(/usr/bin/pcp_attach_node -h 127.0.0.1 -U pgpool -p 9898 -n 1 -w -v)
+    echo $(date +%Y.%m.%d-%H:%M:%S.%3N)" [INFO] "$TMP >> $LOGFILE;
+else
+    echo "$(date +%Y.%m.%d-%H:%M:%S.%3N) : NODE (1) is UP" >> $LOGFILE;
+fi
+
+STATUS_2=$(/usr/bin/pcp_node_info -h 127.0.0.1 -U pgpool -p 9898 -n 2 -w | cut -d " " -f 3)
+echo $(date +%Y.%m.%d-%H:%M:%S.%3N)" [INFO] NODE 2 status "$STATUS_2;
+
+if [ $STATUS_2 == 3 ]
+then
+    NODE3="DOWN";
+    echo "$(date +%Y.%m.%d-%H:%M:%S.%3N) : NODE (2) is DOWN" >> $LOGFILE;
+    echo $(date +%Y.%m.%d-%H:%M:%S.%3N)" [WARN] NODE 2 is down - attaching node" >> $LOGFILE;
+    TMP=$(/usr/bin/pcp_attach_node -h 127.0.0.1 -U pgpool -p 9898 -n 2 -w -v)
+    echo $(date +%Y.%m.%d-%H:%M:%S.%3N)" [INFO] "$TMP >> $LOGFILE;
+else
+    echo "$(date +%Y.%m.%d-%H:%M:%S.%3N) : NODE (2) is UP" >> $LOGFILE;
+fi
+
+# Send Email If any node is down
+if [ $STATUS_0 == 3 ] || [ $STATUS_1 == 3 ] || [ $STATUS_2 == 3 ]
+then
+  send_email $NODE1 $NODE2 $NODE3
+fi
+
+exit 0
